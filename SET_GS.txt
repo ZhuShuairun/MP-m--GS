@@ -1,0 +1,82 @@
+% Finite difference method 
+%GS iterative method to solve the steady-state flow problem
+clear all  
+close all
+format long
+
+tic;
+z=linspace(0,10,201);
+z=z';
+L1=10;
+data_z=0.05;
+N=L1/data_z;
+Ks=1*10^-4;
+seta_s=0.35;
+seta_r=0.14;
+a_g=8*10^-3;
+h_d=-1000;
+c=a_g*(seta_s-seta_r)/Ks;
+X=exp(a_g*h_d);
+
+
+hz=zeros(N+1,1);       %Solution matrix
+hz(1,1)=0;hz(N+1,1)=1-X;  %Boundary conditions
+a1=zeros(1,N+1);
+a2=zeros(1,N);
+a3=zeros(1,N);
+for i=1:N+1
+    a1(1,i)=-2/(data_z^2);
+end
+for i=1:N
+    a2(1,i)=1/(data_z^2)-a_g/(2*data_z);
+    a3(1,i)=1/(data_z^2)+a_g/(2*data_z);
+end
+A1=diag(a1);
+A2=diag(a2,-1);
+A3=diag(a3,1);
+A=A1+A2+A3;
+cond(A)
+A(N+1,:)=0; A(N+1,N+1)=1;
+A(1,:)=0; A(1,1)=1;
+D=diag(diag(A));
+L=tril(A,-1);U=triu(A,1);
+iD=(D+L);
+DU=-U;
+
+%GS iterative method
+wucha1=1*10^-8;
+max1=10;kk=0;
+B=hz(:,1); ERR=zeros(100,1);
+while max1>wucha1
+    OLDVAL=hz(:,1);
+    hz(:,1)=iD\(DU*hz(:,1)+B);
+    kk=kk+1;
+    ERR(kk)=norm(OLDVAL-hz(:,1),inf);
+    if ERR(kk)<max1
+      max1=ERR(kk); 
+    end
+end
+t1=toc;
+xx1=real(log(hz+X)/a_g);
+
+%Analytical solution
+hz_1=zeros(N+1,1);
+for i=1:N+1
+    hz_1(i)=(1-X)*exp(a_g/2*(L1-z(i)))*(sinh(a_g/2*z(i))/sinh(a_g/2*L1));
+end
+%hz_1(1)=0;hz_1(N+1)=1;
+hz_2=log(hz_1+X)/a_g;
+
+%Error Analysis
+real1=(xx1(2:N)-hz_2(2:N))./hz_2(2:N);max1=abs(sum(real1))/(N-1)*100;
+mre1=max(abs(real1))*100;
+Res1=((xx1(2:N)-hz_2(2:N))./hz_2(2:N)).^2;res1=sqrt(sum(Res1)/(N-1));
+
+%Drawing
+set(0,'defaultfigurecolor','w');
+figure(1)
+plot(xx1(:,1),z,'*','Linewidth',1.5);
+hold on;
+plot(hz_2(:,1),z,'k','Linewidth',1.5);
+xlabel('Pressure head (m)','FontSize',16);
+ylabel('Depth (m)','FontSize',16);

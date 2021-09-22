@@ -1,0 +1,15 @@
+% Multi-step Symmetric scaling preconditioner MSSP (sub-function) 2 steps
+% e is filter parameter
+function [MA2,Mssor]=MSSP2(A,e)
+  Dm1=diag(diag(A));
+  Em1=-tril(A,-1);Fm1=-triu(A,1);
+  Mssor1=((Dm1-Em1)/Dm1*(Dm1-Fm1))^-1;
+  MA1=Mssor1*A;
+  
+  Dm2=diag(diag(MA1));
+  Em2=-tril(MA1,-1);Fm2=-triu(MA1,1);
+  Mssor2=((Dm2-Em2)/Dm2*(Dm2-Fm2))^-1;
+  Mssor2(abs(Mssor2)<e)=0;
+  MA2=Mssor2*MA1;
+
+  Mssor=Mssor2*Mssor1;

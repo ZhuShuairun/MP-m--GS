@@ -1,0 +1,123 @@
+% Finite difference method 
+% MP(m)-GS iterative method to solve the transient flow problem
+clear all  
+close all
+format long
+
+tic;
+z=linspace(0,10,401);
+L=10;
+data_z=0.025;
+N=10/data_z;
+
+Ks=9*10^-5;
+seta_s=0.50;
+seta_r=0.11;
+a_g=1*10^-4;
+h_d=-100000;
+c=a_g*(seta_s-seta_r)/Ks;
+X=exp(a_g*h_d);
+
+
+deta_t=0.001;
+nn=5/deta_t;
+
+hz=zeros(N+1,nn+1);  %Solution matrix
+hz(1:N+1,1)=0;hz(N+1,1:nn+1)=1-X;
+hz(1,1:nn+1)=0;
+a1=zeros(1,N+1);
+a2=zeros(1,N);
+a3=zeros(1,N);
+for i=1:N+1
+    a1(1,i)=1+2*deta_t/(c*data_z^2);
+end
+for i=1:N
+    a2(1,i)=-deta_t/(c*data_z^2)+a_g*deta_t/(2*c*data_z);
+    a3(1,i)=-deta_t/(c*data_z^2)-a_g*deta_t/(2*c*data_z);
+end
+A1=diag(a1);
+A2=diag(a2,-1);
+A3=diag(a3,1);
+A=A1+A2+A3;
+A(N+1,:)=0; A(N+1,N+1)=1;
+A(1,:)=0; A(1,1)=1;
+[MA,Mssor]=MSSP4(A,0.0001);
+cond(MA)
+L1=tril(MA,-1);U1=-triu(MA,1);
+D=diag(diag(MA));
+iD=D+L1;
+
+%GS iterative method
+wucha1=1*10^-8;ERR=zeros(100,1);
+kk=zeros(nn,1);j=0;
+for k=2:nn+1
+   max0=10;j=j+1;
+   kk(j)=0;
+   B=Mssor*hz(:,k-1);
+  while max0>wucha1
+    OLDVAL=hz(:,k);
+    hz(:,k)=iD\(U1*hz(:,k)+B);
+  
+    kk(j)=kk(j)+1;
+    ERR(kk(j))=norm(OLDVAL-hz(:,k),inf);
+    if ERR(kk(j))<max0
+      max0=ERR(kk(j)); 
+    end
+    
+  end
+end
+t1=toc;
+xx1=real(log(hz+X)/a_g);
+kk1=sum(kk)/nn;
+
+%Analytical solution
+lamu_k=zeros(1,21);mu_k=zeros(1,21);
+for i=1:21
+    lamu_k(i)=pi*i/L;
+    mu_k(i)=(a_g^2/4+lamu_k(i)^2)/(a_g*(seta_s-seta_r)/Ks);
+end
+t=[1,2,3,4,5];n1=length(t);
+sum1=zeros(N+1,n1);
+hz_t=zeros(N+1,n1);
+for i=1:N+1
+    for j=1:n1
+        for k=1:21
+         sum1(i,j)=sum1(i,j)+(-1)^k*(lamu_k(k)/mu_k(k))*sin(lamu_k(k)*z(i))*exp(-1*mu_k(k)*t(j));
+        end
+    end
+end
+
+for i=1:N+1
+    for j=1:n1
+        hz_t(i,j)=2*(1-X)/(L*a_g*(seta_s-seta_r)/Ks)*exp(a_g*(L-z(i))/2)*sum1(i,j)+(1-X)*(1-exp(-a_g*z(i)))/(1-exp(-a_g*L));
+    end
+end
+hz_t1=log(hz_t+X)/a_g;%换算为h
+
+%Error Analysis
+real1=(xx1(2:N,nn/5+1)-hz_t1(2:N,1))./hz_t1(2:N,1);max1=abs(sum(real1))/(N-1)*100;
+real2=(xx1(2:N,nn/5*2+1)-hz_t1(2:N,2))./hz_t1(2:N,2);max2=abs(sum(real2))/(N-1)*100;
+real3=(xx1(2:N,nn/5*3+1)-hz_t1(2:N,3))./hz_t1(2:N,3);max3=abs(sum(real3))/(N-1)*100;
+real4=(xx1(2:N,nn/5*4+1)-hz_t1(2:N,4))./hz_t1(2:N,4);max4=abs(sum(real4))/(N-1)*100;
+real5=(xx1(2:N,nn/5*5+1)-hz_t1(2:N,5))./hz_t1(2:N,5);max5=abs(sum(real5))/(N-1)*100;
+
+mre1=max(abs(real1))*100;mre2=max(abs(real2))*100;mre3=max(abs(real3))*100;
+mre4=max(abs(real4))*100;mre5=max(abs(real5))*100;
+Res1=((xx1(2:N,nn/5+1)-hz_t1(2:N,1))./hz_t1(2:N,1)).^2;res1=sqrt(sum(Res1)/(N-1));
+Res2=((xx1(2:N,nn/5*2+1)-hz_t1(2:N,2))./hz_t1(2:N,2)).^2;res2=sqrt(sum(Res2)/(N-1));
+Res3=((xx1(2:N,nn/5*3+1)-hz_t1(2:N,3))./hz_t1(2:N,3)).^2;res3=sqrt(sum(Res3)/(N-1));
+Res4=((xx1(2:N,nn/5*4+1)-hz_t1(2:N,4))./hz_t1(2:N,4)).^2;res4=sqrt(sum(Res4)/(N-1));
+Res5=((xx1(2:N,nn/5*5+1)-hz_t1(2:N,5))./hz_t1(2:N,5)).^2;res5=sqrt(sum(Res5)/(N-1));
+
+%Drawing
+set(0,'defaultfigurecolor','w');
+figure(1)
+plot(xx1(:,nn/5+1),z,'b*',xx1(:,nn/5*2+1),z,'b*',xx1(:,nn/5*3+1),z,'b*',xx1(:,nn/5*4+1),z,'b*',xx1(:,nn/5*5+1),z,'b*','Linewidth',1.5);
+hold on;
+plot(hz_t1(:,1),z,'r',hz_t1(:,2),z,'r',hz_t1(:,3),z,'r',hz_t1(:,4),z,'r',hz_t1(:,5),z,'r','Linewidth',1.5);
+xlabel('Pressure head (m)','FontSize',30);
+ylabel('z (m)','FontSize',30);
+legend('t=1h','t=2h','t=3h','t=4h','t=5h');
+
+
+
